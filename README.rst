@@ -22,7 +22,7 @@ Start a Jupyter notebook with::
 
     jupyter notebook
 
-Select the ``mmt_kernel`` as Kernel in your Notebook.
+Select the ``mmt_kernel`` as Kernel in your notebook.
 Now you can enter following commands in your Jupyter console::
     
     create view <V> <fromTheory> <toTheory>
@@ -35,5 +35,5 @@ Now you can enter following commands in your Jupyter console::
     set metaTheory <MetaTheory> 
     set namespace <Namespace>
 
-In case you make any modifications redo ``python setup.py install`` before starting a Notebook 
+In case you make any modifications redo ``python setup.py install`` before starting a notebook 
     
