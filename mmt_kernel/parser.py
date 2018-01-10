@@ -80,20 +80,43 @@ def splitInput(input):
 
         elif input.startswith('add term'):
             try:
-                termName, theory = input[len('add term')+1:].split(" ",1)
+                term, theory = input[len('add term')+1:].split(" ",1)
+                termName, termContent = term.split(':',1)
                 return{
                 'ShellAction' : 'add term',
-                'data' : [termName,theory],
+                'data' : [termName,termContent,theory],
                 'error' : False,
                 }
             except ValueError:
                 if(len(input[len('add term')+1:]) == 0):
                     raise ValueError
                 theory = None
-                termName = input[len('add term')+1:]
+                term = input[len('add term')+1:]
+                termName, termContent = term.split(':',1)
                 return{
                 'ShellAction' : 'add term',
-                'data' : [termName,theory],
+                'data' : [termName,termContent,theory],
+                'error' : False,
+                }
+
+        elif input.startswith('add declaration'):
+            try:
+                declaration, theory = input[len('add declaration')+1:].split(" ",1)
+                declarationName, declarationContent = declaration.split(':',1)
+                return{
+                'ShellAction' : 'add declaration',
+                'data' : [declarationName,declarationContent,theory],
+                'error' : False,
+                }
+            except ValueError:
+                if(len(input[len('add declaration')+1:]) == 0):
+                    raise ValueError
+                theory = None
+                declaration = input[len('add declaration')+1:]
+                declarationName, declarationContent = declaration.split(':',1)
+                return{
+                'ShellAction' : 'add declaration',
+                'data' : [declarationName,declarationContent,theory],
                 'error' : False,
                 }
 
@@ -106,16 +129,16 @@ def splitInput(input):
             <html>
             <body>
             <p style="color:red;">Invalid input! Valid options are:</p>
-            <p style="color:red;">create view &ltView> </p>
-            <p style="color:red;">create theory &ltTheory> </p>
-            <p style="color:red;">add term &ltTerm></p>
-            <p style="color:red;">add declaration &ltDeclaration> [&ltTheory>]</p>
-            <p style="color:red;">infer in &ltTheory>/&ltView> &ltTerm> (currently not supported)</p>
+            <p style="color:red;">create view "View" </p>
+            <p style="color:red;">create theory "Theory" </p>
+            <p style="color:red;">add term "Term"</p>
+            <p style="color:red;">add declaration "Declaration" ["Theory"]</p>
+            <p style="color:red;">infer in "Theory"/ "View" "Term" (currently not supported)</p>
             <p style="color:red;">show namespace</p>
             <p style="color:red;">show metaTheory</p>
             <p style="color:red;">show scope</p>
-            <p style="color:red;">set namespace &ltNamespace></p>
-            <p style="color:red;">set metaTheory &ltMetaTheory></p>
+            <p style="color:red;">set namespace "Namespace"</p>
+            <p style="color:red;">set metaTheory "MetaTheory"</p>
             </body>
             </html>""",
 
