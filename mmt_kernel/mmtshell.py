@@ -70,16 +70,31 @@ class MMTShell():
             return self.create_view_URL(parsedInput['data'][0],parsedInput['data'][1],parsedInput['data'][2])
 
         elif parsedInput['ShellAction'] == 'add term':
+            term = parsedInput['data'][0]
+            print(term)
             theoryName = parsedInput['data'][1]
             if theoryName == None:
                 theoryName = self.currentScope
-            return self.add_term_URL(parsedInput['data'][0],theoryName)
+            URL = self.add_term_URL(theoryName)
+            # raise ImportError(URL)
+            # return self.get_display_data(self.http_request(URL,term).text)
+            return URL
 
         elif parsedInput['ShellAction'] == 'add declaration':
             theoryName = parsedInput['data'][1]
             if theoryName == None:
                 theoryName = self.currentScope
             return self.add_declaration_URL(parsedInput['data'][0],theoryName)
+
+        elif parsedInput['ShellAction'] == 'infer type':
+            term = parsedInput['data'][0]
+            theoryName = parsedInput['data'][1]
+            if theoryName == None:
+                theoryName = self.currentScope
+            URL = self.infer_type_URL(theoryName)
+            return URL
+            # return self.get_display_data(self.http_request(URL,term).text)
+
         else:
             return 'Something went seriously wrong!'
 
@@ -92,75 +107,100 @@ class MMTShell():
         if parsedInput['error'] == True:
             return self.get_display_data(parsedInput['message'])
 
+        # show namespace handling
         elif parsedInput['ShellAction'] == 'show namespace':
             return self.get_display_data(self.MMT_namespace)
 
+        # show metaTheory handling
         elif parsedInput['ShellAction'] == 'show metaTheory':
             return self.get_display_data(self.metaTheory)
 
+        # show scope handling
         elif parsedInput['ShellAction'] == 'show scope':
             scope = self.currentScope
             if scope == None:
                 scope = 'None'
             return self.get_display_data(scope)
 
+        # set namespace handling
         elif parsedInput['ShellAction'] == 'set namespace':
-            self.set_MMT_Namespace(parsedInput['data'][0])
+            namespace = parsedInput['data'][0]
+            self.set_MMT_Namespace(namespace)
             return self.get_display_data('set namespace to '+ self.MMT_namespace)
 
+        # set meta theory handling
         elif parsedInput['ShellAction'] == 'set metaTheory':
-            self.set_MMT_metaTheory(parsedInput['data'][0])
+            metaTheory = parsedInput['data'][0]
+            self.set_MMT_metaTheory(metaTheory)
             return self.get_display_data('set metaTheory to '+ self.metaTheory)
 
+        # create theory handling
         elif parsedInput['ShellAction'] == 'create theory':
-            self.set_currentScope(parsedInput['data'][0])
-            URL = self.create_theory_URL(parsedInput['data'][0])
+            theory = parsedInput['data'][0]
+            self.set_currentScope(theory)
+            URL = self.create_theory_URL(theory)
             return self.get_display_data(requests.get(URL).text)
 
-
+        # create view handling
         elif parsedInput['ShellAction'] == 'create view':
-            self.set_currentScope(parsedInput['data'][0])
-            URL = self.create_view_URL(parsedInput['data'][0],parsedInput['data'][1],parsedInput['data'][2])
+            viewName = parsedInput['data'][0]
+            fromTheory = parsedInput['data'][1]
+            toTheory = parsedInput['data'][2]
+            self.set_currentScope(viewName)
+            URL = self.create_view_URL(viewName,fromTheory,toTheory)
             return self.get_display_data(requests.get(URL).text)
 
+        # add term handling
         elif parsedInput['ShellAction'] == 'add term':
-            termName = parsedInput['data'][0]
-            termContent = parsedInput['data'][1]
-            theoryName = parsedInput['data'][2]
-            if theoryName == None:
-                theoryName = self.currentScope
-            URL = self.add_term_URL(parsedInput['data'][0],theoryName)
-
-            term = termName + ':' + termContent
+            term = parsedInput['data'][0]
+            theory = parsedInput['data'][1]
+            if theory == None:
+                theory = self.currentScope
+            URL = self.add_term_URL(theory)
+            # raise ImportError(URL)
             return self.get_display_data(self.http_request(URL,term).text)
 
+        # add declaration handling
         elif parsedInput['ShellAction'] == 'add declaration':
             declarationName = parsedInput['data'][0]
             declarationContent = parsedInput['data'][1]
-            theoryName = parsedInput['data'][2]
-            if theoryName == None:
-                theoryName = self.currentScope
-            URL = self.add_declaration_URL(parsedInput['data'][0],theoryName)
+            theory = parsedInput['data'][2]
+            if theory == None:
+                theory = self.currentScope
+            URL = self.add_declaration_URL(declarationName,theory)
 
             declaration = declarationName+':'+ declarationContent
-            # TODO add content here and in the add term case
-            # ask Theresa what the "content" is and how the user enters it
-            # remember to add the declaration delimiter after the content
             return self.get_display_data(self.http_request(URL,declaration).text)
+
+        # infer type handling
+        elif parsedInput['ShellAction'] == 'infer type':
+            term = parsedInput['data'][0]
+            theory = parsedInput['data'][1]
+            if theory == None:
+                theory = self.currentScope
+            URL = self.infer_type_URL(theory)
+            return self.get_display_data(self.http_request(URL,term).text)
+
         else:
             return 'Something went seriously wrong!'
 
+    # TODO give the path to the theory as parameter so we can reference theories from
+    # other namespaces
     def create_theory_URL(self, theoryName):
         return MMT_BASE_URL + self.extension + 'new?theory=' + self.get_path(theoryName) + '&meta=' + self.metaTheory
 
     def create_view_URL(self, viewName, fromTheory, toTheory):
         return MMT_BASE_URL + self.extension + 'new?view=' + self.get_path(viewName) + '&from=' + self.get_path(fromTheory)+ '&to=' + self.get_path(toTheory)
 
-    def add_term_URL(self,termName,theoryName):
-        return MMT_BASE_URL + self.extension +'new?term=' +termName + '&cont=' + self.get_path(theoryName)
+    def add_term_URL(self,theoryName):
+        return MMT_BASE_URL + self.extension +'term?cont=' + self.get_path(theoryName)
 
     def add_declaration_URL(self,declarationName,theoryName):
         return MMT_BASE_URL + self.extension +'new?decl=' +declarationName + '&cont=' + self.get_path(theoryName)
+
+    # type inference geht mit /infer?cont=... mit dem term im body des requests ;)+
+    def infer_type_URL(self,theoryName):
+        return MMT_BASE_URL + self.extension +'infer?cont=' + self.get_path(theoryName)
 
 
     # returns the MMT path / URI for a theory or view

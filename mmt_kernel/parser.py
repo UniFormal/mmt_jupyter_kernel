@@ -81,10 +81,9 @@ def splitInput(input):
         elif input.startswith('add term'):
             try:
                 term, theory = input[len('add term')+1:].split(" ",1)
-                termName, termContent = term.split(':',1)
                 return{
                 'ShellAction' : 'add term',
-                'data' : [termName,termContent,theory],
+                'data' : [term,theory],
                 'error' : False,
                 }
             except ValueError:
@@ -92,10 +91,9 @@ def splitInput(input):
                     raise ValueError
                 theory = None
                 term = input[len('add term')+1:]
-                termName, termContent = term.split(':',1)
                 return{
                 'ShellAction' : 'add term',
-                'data' : [termName,termContent,theory],
+                'data' : [term,theory],
                 'error' : False,
                 }
 
@@ -120,9 +118,21 @@ def splitInput(input):
                 'error' : False,
                 }
 
+        # TODO add optional [in <Theory/View>]
+        elif input.startswith('infer type'):
+            theory = None
+            term = input[len('infer type')+1:]
+            return{
+            'ShellAction' : 'infer type',
+            'data' : [term,theory],
+            'error' : False,
+            }
+
         else:
             raise ValueError
+
     except ValueError:
+        # move error message to mmtshell as this has nothing to d with the parser itself
         return{
             'error' : True,
             'message' : """
@@ -133,7 +143,7 @@ def splitInput(input):
             <p style="color:red;">create theory "Theory" </p>
             <p style="color:red;">add term "Term"</p>
             <p style="color:red;">add declaration "Declaration" ["Theory"]</p>
-            <p style="color:red;">infer in "Theory"/ "View" "Term" (currently not supported)</p>
+            <p style="color:red;">infer type "Term" [in"T"/"V"] "Term"</p>
             <p style="color:red;">show namespace</p>
             <p style="color:red;">show metaTheory</p>
             <p style="color:red;">show scope</p>
@@ -172,12 +182,30 @@ def print_result(result):
             else:
                 print(k+" : "+v)
 
+def get_difference(word1,word2):
+    difference = 0
+    length = 0
+    if(len(word1) < len(word2)):
+        length = len(word1)
+    else:
+        length = len(word2)
+
+    for i in range(0,length):
+        if word1[i] != word2[i]:
+            difference += 1
+    difference += abs(len(word1) - len(word2))
+    return difference
+
 
 if __name__ == '__main__':
-	while(True):
-		x = input()
-		if x == 'q':
-			break
-		res = splitInput(x)
-		print_result(res)
-		print()
+    while(True):
+        x = input()
+        if x == 'q':
+            break
+        print("second word:")
+        y = input()
+        print("difference:",get_difference(x,y))
+
+		# res = splitInput(x)
+		# print_result(res)
+		# print()
