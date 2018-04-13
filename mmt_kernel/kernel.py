@@ -1,5 +1,6 @@
 import requests
 import sys
+import os
 from pexpect import replwrap
 
 try:
@@ -10,7 +11,7 @@ except ImportError:
 from ipykernel.kernelbase import Kernel
 
 MMT_SERVER_EXTENSION = 'repl'
-MMT_BASE_URL = 'http://localhost:9000'
+MMT_BASE_URL = os.environ.setdefault('MMT_BASE_URL', 'http://localhost:9000')
 
 
 class MMTKernel(Kernel):
@@ -41,7 +42,6 @@ class MMTKernel(Kernel):
 
     def do_execute(self, line, silent, store_history=True,user_expressions=None,allow_stdin=False):
 
-
         if(self.STARTUP):
             out = requests.get(MMT_BASE_URL + '/:' + MMT_SERVER_EXTENSION+'?start',data = None,headers = self.headers, stream = True)
             self.STARTUP = False
@@ -65,3 +65,11 @@ class MMTKernel(Kernel):
             'payload': [],
             'user_expressions': {},
             }
+
+    def do_shutdown(self,restart):
+        out = requests.get(MMT_BASE_URL + '/:' + MMT_SERVER_EXTENSION+'?quit',data = None,headers = self.headers, stream = True)
+
+
+if __name__ == '__main__':
+    from ipykernel.kernelapp import IPKernelApp
+    IPKernelApp.launch_instance(kernel_class=MMTKernel)
