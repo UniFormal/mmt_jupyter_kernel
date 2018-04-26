@@ -44,7 +44,7 @@ class MMTKernel(Kernel):
         self.headers = {'content-type' : 'application/json',
                         'content-encoding' : 'UTF-8'}
         try:
-            response_dict = self.mmtsession.post(MMT_BASE_URL + '/:' + MMT_SERVER_EXTENSION+'?start',data = None,headers = self.headers, stream = True).json()
+            response_dict = self.mmtsession.get(MMT_BASE_URL + '/:' + MMT_SERVER_EXTENSION+'?start',data = None,headers = self.headers, stream = True).json()
             sessionheader = { 'X-REPL-Session' : response_dict['session'] }
             self.headers = {**self.headers, **sessionheader}
         except Exception as e:
@@ -58,7 +58,7 @@ class MMTKernel(Kernel):
                 raise MMTError(message)
         # for connection errors
         except requests.exceptions.RequestException:
-            message = 'Unable to communicate with the MMT-Server'
+            message = self.wrap_errors('Unable to communicate with the MMT-Server')
 
         # for internal MMT errors
         except MMTError as e:
@@ -79,7 +79,7 @@ class MMTKernel(Kernel):
                         	elem.value = "Show Stacktrace";
                         	document.getElementById('stacktrace').style.display = "none";
                         }
-                  }
+                    }
                 </script>
                 </html>"""
         # for all the other errors
@@ -108,7 +108,11 @@ class MMTKernel(Kernel):
 
     # called when the kernel is terminated
     def do_shutdown(self,restart):
-        out = requests.get(MMT_BASE_URL + '/:' + MMT_SERVER_EXTENSION+'?quit',data = None,headers = self.headers, stream = True)
+        try:
+            out = requests.get(MMT_BASE_URL + '/:' + MMT_SERVER_EXTENSION+'?quit',data = None,headers = self.headers, stream = True)
+        except requests.exceptions.RequestException:
+            pass
+
 
     # wraps the message into the stream_content format
     def get_stream_content(self,message):
