@@ -97,16 +97,16 @@ class MMTKernel(Kernel):
                 'user_expressions': {},
                 }
 
-    # handles the requests to the MMT-Server
+    """handles the POST requests to the MMT-Server"""
     def handle_request(self,code):
         binary_data = code.encode('UTF-8')
         return self.mmtsession.post(MMT_BASE_URL + '/:' + MMT_SERVER_EXTENSION,data = binary_data,headers = self.headers, stream = True).json()
 
-    # marks errors red
+    """marks errors red"""
     def wrap_errors(self,error):
         return '<p style="color:red;">'+error+'</p>'
 
-    # called when the kernel is terminated
+    """called when the kernel is terminated"""
     def do_shutdown(self,restart):
         try:
             out = requests.get(MMT_BASE_URL + '/:' + MMT_SERVER_EXTENSION+'?quit',data = None,headers = self.headers, stream = True)
@@ -114,7 +114,7 @@ class MMTKernel(Kernel):
             pass
 
 
-    # wraps the message into the stream_content format
+    """wraps the message into the stream_content format"""
     def get_stream_content(self,message):
         return {
         'data': {
