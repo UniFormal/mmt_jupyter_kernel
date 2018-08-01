@@ -3,9 +3,21 @@ mmt_kernel
 
 ``mmt_kernel`` is a MMT kernel
 
+Prerequisites
+-------------
+for the ``mmt_kernel`` to run, install [Py4J](https://www.py4j.org/) and [ipywidgets](https://ipywidgets.readthedocs.io/en/latest/) first:
+
+    pip install py4j
+    pip install ipywidgets
+
+and enable the widgets in your Notebooks:
+
+    jupyter nbextension enable --py widgetsnbextension --sys-prefix\
+
+
 Installation
 ------------
-To install ``mmt_kernel`` from PyPI::
+To install ``mmt_kernel`` from PyPI:
 
     pip install mmt_jupyter_kernel
     python setup.py install
@@ -16,6 +28,7 @@ Usage
 In the MMT Shell::
 
     server on port 9000
+    extension info.kwarc.mmt.python.Py4JGateway
     extension info.kwarc.mmt.api.web.REPLServer
 
 Start a Jupyter notebook with::
