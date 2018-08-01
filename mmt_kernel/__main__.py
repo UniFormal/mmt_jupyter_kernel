@@ -1,4 +1,4 @@
 from ipykernel.kernelapp import IPKernelApp
-from . import MMTKernel
+from . import JupyterKernel
 
-IPKernelApp.launch_instance(kernel_class=MMTKernel)
+IPKernelApp.launch_instance(kernel_class=JupyterKernel)

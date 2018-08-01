@@ -1,130 +1,300 @@
 import requests
+import getpass
 import sys
 import os
 import json
+import ipywidgets
+
+
 from pexpect import replwrap
+
+from jupyter_client import KernelClient
+
+from .mmt import *
+from .utils import to_display_data
 
 try:
     from urllib.parse import quote
 except ImportError:
     from urllib import quote
 
+from IPython.display import display
+from IPython.core import release
+from IPython.utils.tokenutil import token_at_cursor, line_at_cursor
+
+from ipython_genutils.py3compat import builtin_mod, PY3, unicode_type, safe_unicode
+
+from traitlets import Instance, Type, Any, List, Bool
 from ipykernel.kernelbase import Kernel
+from ipykernel.comm import CommManager
+from ipykernel.zmqshell import ZMQInteractiveShell
 
-MMT_SERVER_EXTENSION = 'repl'
-MMT_BASE_URL = os.environ.setdefault('MMT_BASE_URL', 'http://localhost:9000')
-
-
-class MMTError(Exception):
-    message = ''
-    def __init__(self,message,**kwargs):
-        Exception.__init__(self,message,**kwargs)
-        self.message = message
+# ----------------------------------  LAYOUT  ----------------------------------
+# TODO: layout
 
 
-class MMTKernel(Kernel):
+# ----------------------------------  WIDGET  ----------------------------------
+class Widget:
+    """A wrapper class for Jupyter Widgets"""
+    def __init__(self, widget, kernel, ID):
+        # in case we want to reference any of these instance variables
+        # we need to define a get function (also on scala side) for it (see e.g. ID)
+        self.kernel = kernel
+        self.jupwid = widget
+        self.keys = {}
+        self.ID = ID
+
+    def set(self, key, value):
+        """Sets key to value. Returns this widget to allow chaining."""
+        self.keys[key] = value
+        setattr(self.jupwid,key,value)
+        # self.jupwid.keys.append(key) this doesn't work to register new traitlets/keys for the widget to listen to
+        # TODO: maybe look into how we could register new traitlets, altough a custom widget is probably more fitting here
+        return self
+    
+
+    def get(self, key):
+        """Returns the value to given key"""
+        return getattr(self.jupwid,key)
+    
+    def getAsFloat(self,key):
+        """Necessary for the right datatype in Scala""" 
+        return self.get(key)
+    
+    def getAsBool(self,key):
+        """Necessary for the right datatype in Scala""" 
+        return self.get(key)
+    
+    def getID(self):
+        return self.ID
+    
+    def observe(self, callback, key):
+        """Registers a callback to the widget, that is called 
+        when the specified key changes. Returns this widget
+        to allow chaining."""
+        def change_owner_and_observe(d):
+            d.update({"owner" : self}) 
+            callback(self.kernel, d)
+        self.jupwid.observe(change_owner_and_observe ,key)
+        return self
+
+    def on_click(self,callback):
+        """Registers a callback to the widget, that is called when it is clicked.
+        Returns this widget to allow chaining."""
+        self.jupwid.on_click(lambda b: callback(self.kernel,self))
+        return self
+
+    def toString(self):
+        return repr(self)
+    
+    def display(self):
+        """Displays this widget. Returns this widget to allow chaining."""
+        display(self.jupwid)
+        return self
+
+    def close(self):
+        """Closes this widget and removes it from the notebook"""
+        self.jupwid.close()
+
+    class Java:
+        implements = ["info.kwarc.mmt.python.WidgetPython"]
+
+# this is just for testing
+class Text(Widget):
+    def __init__(self, widget, kernel, ID):
+        super(Text, self).__init__(widget, kernel, ID)
+        self.value = self.jupwid.value
+    class Java:
+        implements = ["info.kwarc.mmt.python.Text"]
+ 
+
+
+# ----------------------------------  KERNEL  ----------------------------------
+widgets = {}
+wcounter = 0
+
+
+if not py4jConnectionFailed:
+    # connect to MMT via Py4JGateway and load the JupyterKernel extension
+    scala = controller.extman().addExtension("info.kwarc.mmt.python.JupyterKernel", toScalaList([]))
+
+
+class JupyterKernel(Kernel):
     implementation = 'MMT'
     implementation_version = '1.2'
-    language = 'mmt-action-script'
+    language = 'extended MMT surface syntax'
     language_version = '0.1'
     language_info = {
-    'name': 'Any text',
-    'mimetype': 'text/plain',
-    'file_extension': '.txt',
+        'name': 'extended MMT surface syntax',
+        'mimetype': 'text/plain',
+        'file_extension': '.mmt',
     }
-    banner = "MMT kernel - running build command on MMT"
-    debugprint = True
+    banner = "MMT Kernel"
+        
+
+    shell = Instance('IPython.core.interactiveshell.InteractiveShellABC', allow_none=True)
+    shell_class = Type(ZMQInteractiveShell)
+
+    use_experimental_completions = Bool(True,
+        help="Set this flag to False to deactivate the use of experimental IPython completion APIs.",
+        ).tag(config=True)
+
+    user_module = Any()
+
+    def _user_module_changed(self, name, old, new):
+        if self.shell is not None:
+            self.shell.user_module = new
+
+    user_ns = Instance(dict, args=None, allow_none=True)
+
+    def _user_ns_changed(self, name, old, new):
+        if self.shell is not None:
+            self.shell.user_ns = new
+            self.shell.init_user_ns()
 
     def __init__(self, **kwargs):
-        super(MMTKernel,self).__init__(**kwargs)
-        self.mmtsession = requests.Session()
-        self.adapter = requests.adapters.HTTPAdapter()
-        self.mmtsession.mount('https://', self.adapter)
-        self.mmtsession.mount('http://', self.adapter)
-        self.headers = {'content-type' : 'application/json',
-                        'content-encoding' : 'UTF-8'}
-        try:
-            response_dict = self.mmtsession.get(MMT_BASE_URL + '/:' + MMT_SERVER_EXTENSION+'?start',data = None,headers = self.headers, stream = True).json()
-            sessionheader = { 'X-REPL-Session' : response_dict['session'] }
-            self.headers = {**self.headers, **sessionheader}
-        except Exception as e:
-            pass
+        super(JupyterKernel, self).__init__(**kwargs)
+        self.shell = self.shell_class.instance(parent=self,
+                                               profile_dir=self.profile_dir,
+                                               user_module=self.user_module,
+                                               user_ns=self.user_ns,
+                                               kernel=self,
+                                               )
+        self.shell.displayhook.session = self.session
+        self.shell.displayhook.pub_socket = self.iopub_socket
+        self.shell.displayhook.topic = self._topic('execute_result')
+        self.shell.display_pub.session = self.session
+        self.shell.display_pub.pub_socket = self.iopub_socket
 
-    def do_execute(self, code, silent, store_history=True,user_expressions=None,allow_stdin=False):
-        try:
-            response_dict = self.handle_request(code)
-            message = response_dict['message']
-            if not response_dict['success']:
-                raise MMTError(message)
-        # for connection errors
-        except requests.exceptions.RequestException:
-            message = self.wrap_errors('Unable to communicate with the MMT-Server')
+        self.comm_manager = CommManager(parent=self, kernel=self)
 
-        # for internal MMT errors
-        except MMTError as e:
-            message = self.wrap_errors('An internal MMT Error occured:')
-            if self.debugprint:
-                message += """
-                <html>
-                <div id="stacktrace"  style="display:none;"> """+e.message+"""</div>
-                <input id="button" type="button" name="button" value="Show Stacktrace" onclick="toggle()" />
-                <script>
-                    function toggle() {
-                      	var elem = document.getElementById('button')
-                      	if(elem.value == "Show Stacktrace"){
-                        	elem.value = "Hide Stacktrace";
-                      		document.getElementById('stacktrace').style.display = "block";
-                      	}
-                        else {
-                        	elem.value = "Show Stacktrace";
-                        	document.getElementById('stacktrace').style.display = "none";
-                        }
-                    }
-                </script>
-                </html>"""
-        # for all the other errors
-        except Exception as e:
-            template = "An exception of type {0} occurred. Arguments:\n{1!r}"
-            message = self.get_stream_content(self.wrap_errors(template.format(type(e).__name__, e.args)))
-        finally:
-            if not silent:
-                # send the response to the frontend
-                self.send_response(self.iopub_socket, 'display_data',self.get_stream_content(message))
-                return {'status': 'ok',
+        self.shell.configurables.append(self.comm_manager)
+        comm_msg_types = ['comm_open', 'comm_msg', 'comm_close']
+        for msg_type in comm_msg_types:
+            self.shell_handlers[msg_type] = getattr(
+                self.comm_manager, msg_type)
+      
+        # we use the session ID we get from the Jupyter session
+        self.sessionID = str(self.session.session)
+        # and start it in MMT
+        if not py4jConnectionFailed:
+            scala.processRequest(self, self.sessionID,"start")
+
+  
+    def start(self):
+        self.shell.exit_now = False
+        super(JupyterKernel, self).start()
+
+    def set_parent(self, ident, parent):
+        """Overridden from parent to tell the display hook and output streams
+        about the parent message.
+        """
+        super(JupyterKernel, self).set_parent(ident, parent)
+        self.shell.set_parent(parent)
+
+    def init_metadata(self, parent):
+        """Initialize metadata.
+        Run at the beginning of each execution request.
+        """
+        md = super(JupyterKernel, self).init_metadata(parent)
+        # FIXME: remove deprecated ipyparallel-specific code
+        # This is required for ipyparallel < 5.0
+        md.update({
+            'dependencies_met': True,
+            'engine': self.ident,
+        })
+        return md
+
+
+    def do_execute(self, code, silent=False, store_history=True, user_expressions=None, allow_stdin=True):
+        """Called when the user inputs code"""
+        if py4jConnectionFailed:
+            self.send_response(self.iopub_socket, 'display_data',to_display_data(py4jConnectionFailed.message))
+        else:
+            response = scala.processRequest(self, self.sessionID,code)
+            if "message" in response:
+                self.send_response(self.iopub_socket, 'display_data',to_display_data(response["message"]))
+            if "element" in response:
+                self.send_response(self.iopub_socket, 'display_data',to_display_data(response["element"]))
+
+            
+        return {'status': 'ok',
                 # The base class increments the execution count
-                'payload' : [],
+                'payload': [],
                 'execution_count': self.execution_count,
                 'user_expressions': {},
                 }
-
-    """handles the POST requests to the MMT-Server"""
-    def handle_request(self,code):
-        binary_data = code.encode('UTF-8')
-        return self.mmtsession.post(MMT_BASE_URL + '/:' + MMT_SERVER_EXTENSION,data = binary_data,headers = self.headers, stream = True).json()
-
-    """marks errors red"""
-    def wrap_errors(self,error):
-        return '<p style="color:red;">'+error+'</p>'
-
-    """called when the kernel is terminated"""
+  
     def do_shutdown(self,restart):
-        try:
-            out = requests.get(MMT_BASE_URL + '/:' + MMT_SERVER_EXTENSION+'?quit',data = None,headers = self.headers, stream = True)
-        except requests.exceptions.RequestException:
-            pass
+        """Called when the kernel is terminated"""
+        if not py4jConnectionFailed:
+            scala.processRequest(self, self.sessionID,"quit")
 
 
-    """wraps the message into the stream_content format"""
-    def get_stream_content(self,message):
-        return {
-        'data': {
-            'text/html': message
-        },
-        'metadata': {},
-        'transient': {},
-        }
+    def makeWidget(self, kind):
+        """Creates a widget and registers it in the Kernel"""
+        w = getattr(ipywidgets,kind)()
+        # this is necessary for the Py4JGateway to identify the widget objects on Scala side
+        setattr(w,"_get_object_id", lambda: repr(self))
+        global wcounter
+        ID = str(wcounter)
+        wcounter = wcounter +1
+        widgets.update({ID : w})
+        return Widget(w, self, ID)
+    
+    def makePWidget(self, kind, PythonParamDict):
+        """Creates a parameterized widget and registers it in the Kernel"""
+        args = self.toPythonDict(PythonParamDict)
+        w = getattr(ipywidgets,kind)(**args)
+        setattr(w,"_get_object_id", lambda: repr(self))
+        global wcounter
+        ID = str(wcounter)
+        wcounter = wcounter +1
+        widgets.update({ID : w})
+        return Widget(w, self, ID)
+    
+    def Text(self,PythonParamDict):
+        args = self.toPythonDict(PythonParamDict)
+        w = ipywidgets.Text(**args)
+        global wcounter
+        ID = str(wcounter)
+        wcounter = wcounter +1
+        widgets.update({ID : w})
+        return Text(w, self, ID)
+
+    def display(self,wids):
+        if isinstance(wids, py4j.java_collections.JavaList):
+            for wid in wids:
+                wid.display()
+        else:
+            display(wids)  
+    
+    def toPythonDict(self,PythonParamDict):
+        pythonDict = {}
+        for key in PythonParamDict:
+            value = PythonParamDict[key]
+            if isinstance(value, py4j.java_gateway.JavaObject):
+                pythonList = []
+                for item in value:
+                    if isinstance(item, py4j.java_gateway.JavaObject): 
+                        # Problem here: we cannot distinguish between Scala Objects
+                        # because they're wrapped in some Proxy Objects as you can see
+                        # when you comment in the following line 
+                        # display(str(item.getClass()))
+                        pythonList.append(widgets[item.getID()]) 
+                    else:
+                        pythonList.append(item)
+                pythonDict.update({key : pythonList})
+            else:
+                pythonDict.update({key : value})
+        return pythonDict
+   
+
+    class Java:
+        implements = ["info.kwarc.mmt.python.JupyterKernelPython"]
+
 
 
 if __name__ == '__main__':
     from ipykernel.kernelapp import IPKernelApp
-    IPKernelApp.launch_instance(kernel_class=MMTKernel)
+    IPKernelApp.launch_instance(kernel_class=JupyterKernel)

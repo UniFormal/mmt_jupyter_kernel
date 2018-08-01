@@ -9,7 +9,7 @@ from IPython.utils.tempdir import TemporaryDirectory
 kernel_json = {
     "argv": [sys.executable, "-m", "mmt_kernel", "-f", "{connection_file}"],
     "display_name": "MMT",
-    "language": "text",
+    "language": "mmt",
 }
 
 def install_my_kernel_spec(user=True, prefix=None):
@@ -19,7 +19,7 @@ def install_my_kernel_spec(user=True, prefix=None):
             json.dump(kernel_json, f, sort_keys=True)
         # TODO: Copy any resources
 
-        print('Installing Jupyter kernel spec')
+        print('Installing Jupyter kernel spec JupyterKernel')
         KernelSpecManager().install_kernel_spec(td, 'mmt', user=user, replace=True, prefix=prefix)
 
 def _is_root():

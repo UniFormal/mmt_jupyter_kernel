@@ -8,6 +8,9 @@ ADD README.rst mmt_jupyter_kernel/README.rst
 
 USER root
 RUN python3 -m pip install --no-cache jupyterhub==$JUPYTERHUB_VERSION \
+    && pip install py4j \
+    && pip install ipywidgets \
+    && jupyter nbextension enable --py widgetsnbextension --sys-prefix\
     && cd mmt_jupyter_kernel \
     && pip install . \
     && python3 -m mmt_kernel.install \
