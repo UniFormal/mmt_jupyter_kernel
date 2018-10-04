@@ -122,11 +122,11 @@ if not py4jConnectionFailed:
 class JupyterKernel(Kernel):
     implementation = 'MMT'
     implementation_version = '1.2'
-    language = 'extended MMT surface syntax'
+    language = 'mmt'
     language_version = '0.1'
     language_info = {
-        'name': 'extended MMT surface syntax',
-        'mimetype': 'text/plain',
+        'name': 'mmt',
+        'mimetype': 'text/mmt',
         'file_extension': '.mmt',
     }
     banner = "MMT Kernel"
