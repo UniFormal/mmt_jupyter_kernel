@@ -1,0 +1,51 @@
+/**
+    Name: MMT theme
+ */
+
+ .cm-s-mmt span.cm-meta { color: #BBB529; }
+ .cm-s-mmt span.cm-number { color: rgb(59, 190, 26); }
+ .cm-s-mmt span.cm-keyword { line-height: 1em; font-weight: bold; color: rgb(0, 77, 165); }
+ .cm-s-mmt span.cm-variable { color: rgb(0, 0, 0); }
+ .cm-s-mmt span.cm-variable-2 { color: #A9B7C6; }
+ .cm-s-mmt span.cm-variable-3, .cm-s-mmt span.cm-type { color: #A9B7C6; }
+ .cm-s-mmt span.cm-property { color: #A9B7C6; }
+ .cm-s-mmt span.cm-operator { color: rgb(88, 94, 100); }
+ .cm-s-mmt span.cm-string { color: #6A8759; }
+ .cm-s-mmt span.cm-string-2 { color: #6A8759; }
+ .cm-s-mmt span.cm-comment { color: #bd1212; }
+ .cm-s-mmt span.cm-link { color: #287BDE; }
+ .cm-s-mmt span.cm-atom { font-weight: bold; color: #CC7832; }
+ .cm-s-mmt span.cm-error { color: #BC3F3C; }
+ .cm-s-mmt span.cm-tag { color: #CC7832; }
+ .cm-s-mmt span.cm-attribute { color: #6A8759; }
+ .cm-s-mmt span.cm-qualifier { color: #6A8759; }
+ .cm-s-mmt span.cm-bracket { color: rgb(0, 25, 51); }
+ .cm-s-mmt span.cm-objectDelimiter { color: rgb(255, 0, 191); }
+ .cm-s-mmt span.cm-declarationDelimiter { color: rgb(27, 60, 95); }
+ .cm-s-mmt span.cm-moduleDelimiter { color: rgb(122, 15, 96); }
+ .cm-s-mmt span.cm-separator { color: rgb(209, 67, 10); }
+ .cm-s-mmt span.cm-theory { color: rgb(223, 0, 0); }
+
+ .cm-s-mmt.CodeMirror { background:  #f7f7f7; color: #A9B7C6; }
+ 
+ 
+ .cm-s-mmt .CodeMirror-cursor { border-left: 1px solid black; }
+ .cm-s-mmt .CodeMirror-activeline-background { background: #3A3A3A; }
+ .cm-s-mmt div.CodeMirror-selected { background: #085a9c; }
+ .cm-s-mmt .CodeMirror-gutters { background: rgb(72, 72, 72); border-right: 1px solid grey; color: #606366 }
+ 
+ .cm-s-mmt span.cm-builtin { color: rgb(18, 85, 156); }
+ .cm-s-mmt  { font-family: Consolas, Menlo, Monaco, Lucida Console, Liberation Mono, DejaVu Sans Mono, Bitstream Vera Sans Mono, Courier New, monospace, serif;}
+ .cm-s-mmt .CodeMirror-matchingbracket { background-color: #3b514d; color: yellow !important; }
+ 
+ .CodeMirror-hints.mmt {
+   font-family: Menlo, Monaco, Consolas, 'Courier New', monospace;
+   color: #9c9e9e;
+   background-color: #3b3e3f !important;
+ }
+ 
+ .CodeMirror-hints.mmt .CodeMirror-hint-active {
+   background-color: #494d4e !important;
+   color: #9c9e9e !important;
+ }
+ 

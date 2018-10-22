@@ -15,10 +15,23 @@ kernel_json = {
 
 
 def install_my_kernel_spec(user=True, prefix=None):
+    
+
     with TemporaryDirectory() as td:
         os.chmod(td, 0o755) # Starts off as 700, not user readable
         with open(os.path.join(td, 'kernel.json'), 'w') as f:
             json.dump(kernel_json, f, sort_keys=True)
+
+        # copy kernel.js to the right place
+        import shutil
+        dir_path = os.path.dirname(os.path.realpath(__file__))
+        jsPath = os.path.join(dir_path,os.path.join('js','kernel.js'))
+        shutil.copy2(jsPath, td)
+
+        # copy kernel.js to the right place
+        cssPath = os.path.join(dir_path,os.path.join('css','mmt.css'))
+        shutil.copy2(cssPath, td)
+
         print('Installing Jupyter kernel spec mmt')
         KernelSpecManager().install_kernel_spec(td, 'mmt', user=user, replace=True, prefix=prefix)
 
