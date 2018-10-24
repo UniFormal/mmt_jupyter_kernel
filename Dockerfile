@@ -1,7 +1,12 @@
+FROM kwarc/mmt:devel AS mmt
 ARG DOCKER_NOTEBOOK_IMAGE=jupyter/minimal-notebook:e1677043235c
 FROM $DOCKER_NOTEBOOK_IMAGE
 ARG JUPYTERHUB_VERSION=0.8.0
 
+COPY --from=mmt /mmt/deploy/mmt.jar ./mmt.jar
+ENV MMT_JAR_LOCATION="./mmt.jar"
+ENV MMT_MSL_LOCATION="./s.msl"
+ADD startup.msl s.msl
 ADD mmt_kernel mmt_jupyter_kernel/mmt_kernel
 ADD setup.py mmt_jupyter_kernel/setup.py
 ADD README.md mmt_jupyter_kernel/README.md
