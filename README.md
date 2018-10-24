@@ -44,5 +44,5 @@ Start a Jupyter notebook with:
 Select the ``mmt__jupyter_kernel`` as Kernel in your notebook.
 Now you can enter MMT surface syntax as you would in JEdit.
 
-In case you make any modifications redo ``python setup.py install`` before starting a notebook
-This works on Python 3 only.
+In case you make any modifications redo ``python setup.py install`` before starting a notebook.
+This package works on Python 3 only.

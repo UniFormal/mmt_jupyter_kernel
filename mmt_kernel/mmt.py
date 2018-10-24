@@ -4,19 +4,28 @@
 from py4j.java_gateway import JavaGateway, JavaObject, GatewayParameters, CallbackServerParameters
 import py4j
 
-try:
+def getJavaGateway(port):
     # create the gateway that communicates with the JVM
-    gwp = GatewayParameters(auto_field=True,auto_convert=True)
-    cbp = CallbackServerParameters()
-    gateway = JavaGateway(gateway_parameters=gwp,callback_server_parameters=cbp)
+    gwp = GatewayParameters(auto_field=True,auto_convert=True,port=port)
+    cbp = CallbackServerParameters(port=port+1)
+    return JavaGateway(gateway_parameters=gwp,callback_server_parameters=cbp,python_proxy_port=port+1)
 
+def getController(gateway):
     # MMT sets the entry point to be the MMT controller
-    controller = gateway.entry_point
+    return gateway.entry_point
 
-    # jvm yields access to Java namespace
-    mmt = gateway.jvm.info.kwarc.mmt
-    api = mmt.api
+def getMMT(gateway):
+    return gateway.jvm.info.kwarc.mmt
 
+def getAPI(mmt):
+     # jvm yields access to Java namespace
+    return mmt.api
+
+def generatePort():
+    from random import randint
+    return randint(20000,30000)
+
+def setupJavaObject(gateway):
     # everything below here are optional improvements to smoothen the Scala-Python integration
     # they also provide examples how to use the bridge
 
@@ -36,6 +45,7 @@ try:
             return s.split("\n")[0][:at] + " ..."
         else:
             return s
+
     JavaObject.__repr__ = lambda self: "<" + self.getClass().getName() + " object (JVM) " + cut(self.toString(), 100) + ">"
 
     # handle special identifiers: $ is not an idchar in Python
@@ -50,11 +60,13 @@ try:
             return c
     def dollarReplace(s):
         return "".join(map(dollarReplaceChar,s))
+
     JavaObject.M = lambda self,s: py4j.java_gateway.get_method(self,dollarReplace(s))
 
     # align magic functions (only work if they exist on the Scala side)
     def MagicFun(s):
         return lambda self,*args,**kwargs: self.M(s)(*args,**kwargs)
+
     JavaObject.__str__  = lambda self: self.toString()
     JavaObject.__call__ = lambda self,*args,**kwargs: self.apply(*args,**kwargs)
     JavaObject.__len__ = lambda self: self.length()
@@ -83,20 +95,21 @@ try:
     JavaObject.__gt__ = MagicFun(">")
     JavaObject.__ge__ = MagicFun(">=")
 
+
+def toScalaSeq(gateway,l):
     # convert collections
     jc = gateway.jvm.scala.collection.JavaConverters
-    def toScalaSeq(l):
-        return jc.asScalaBufferConverter(l).asScala().toSeq()
-    def toScalaList(l):
-        return jc.asScalaBufferConverter(l).asScala().toList()
-    def toScalaMap(m):
-        return jc.mapAsScalaMapConverter(m).asScala()
-    def toScalaLMap(m):
-        return jc.mapAsScalaMapConverter(m).asScala().toList()
+    return jc.asScalaBufferConverter(l).asScala().toSeq()
+def toScalaList(gateway,l):
+    # convert collections
+    jc = gateway.jvm.scala.collection.JavaConverters
+    return jc.asScalaBufferConverter(l).asScala().toList()
+def toScalaMap(gateway,m):
+    # convert collections
+    jc = gateway.jvm.scala.collection.JavaConverters
+    return jc.mapAsScalaMapConverter(m).asScala()
+def toScalaLMap(gateway,m):
+    # convert collections
+    jc = gateway.jvm.scala.collection.JavaConverters
+    return jc.mapAsScalaMapConverter(m).asScala().toList()
     
-    # TODO: make this dynamic
-    py4jConnectionFailed = None
-except py4j.protocol.Py4JNetworkError as e:
-    py4jConnectionFailed = py4j.protocol.Py4JNetworkError
-    py4jConnectionFailed.message = """The MMT server is not running, or the Py4JGateway extension is not enabled!
-            To enable it type: 'extension info.kwarc.mmt.python.Py4JGateway' into your MMT server shell""" 

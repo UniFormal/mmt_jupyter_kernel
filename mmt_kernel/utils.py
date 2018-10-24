@@ -1,12 +1,22 @@
-def to_display_data(message):
+def to_display_data(message,omdoc=None):
     """wraps the message into the display_data format"""
-    return {
-    'data': {
-        'text/html': message
-    },
-    'metadata': {},
-    'transient': {},
-    }
+    if(omdoc):
+        return {
+            'data': {
+                'text/html': message,
+                'application/omdoc' : omdoc
+            },
+            'metadata': {},
+            'transient': {},
+        }
+    else:
+        return {
+            'data': {
+                'text/html': message,
+            },
+            'metadata': {},
+            'transient': {}
+        }
     
 
 

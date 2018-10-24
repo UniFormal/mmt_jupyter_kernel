@@ -2,8 +2,12 @@ import requests
 import getpass
 import sys
 import os
+import signal
 import json
 import ipywidgets
+import subprocess
+import time
+
 
 
 from pexpect import replwrap
@@ -29,8 +33,9 @@ from ipykernel.kernelbase import Kernel
 from ipykernel.comm import CommManager
 from ipykernel.zmqshell import ZMQInteractiveShell
 
-# ----------------------------------  LAYOUT  ----------------------------------
-# TODO: layout
+MMT_JAR_LOCATION = os.getenv('MMT_JAR_LOCATION',os.path.expanduser("~")+"/MMT/deploy/mmt.jar")
+MMT_MSL_LOCATION = os.getenv('MMT_MSL_LOCATION',os.path.expanduser("~")+"/MMT/deploy/s2.msl")
+
 
 
 # ----------------------------------  WIDGET  ----------------------------------
@@ -113,12 +118,6 @@ class Text(Widget):
 widgets = {}
 wcounter = 0
 
-
-if not py4jConnectionFailed:
-    # connect to MMT via Py4JGateway and load the JupyterKernel extension
-    scala = controller.extman().addExtension("info.kwarc.mmt.python.JupyterKernel", toScalaList([]))
-
-
 class JupyterKernel(Kernel):
     implementation = 'MMT'
     implementation_version = '1.2'
@@ -140,6 +139,9 @@ class JupyterKernel(Kernel):
         ).tag(config=True)
 
     user_module = Any()
+    gateway = Any()
+    scala = Any()
+    msg = Any()
 
     def _user_module_changed(self, name, old, new):
         if self.shell is not None:
@@ -176,9 +178,24 @@ class JupyterKernel(Kernel):
       
         # we use the session ID we get from the Jupyter session
         self.sessionID = str(self.session.session)
-        # and start it in MMT
-        if not py4jConnectionFailed:
-            scala.processRequest(self, self.sessionID,"start")
+        self.msg = "start"
+
+        #try:
+        port = generatePort()
+        # TODO update MMT path and .msl path
+        self.mmt = subprocess.Popen(["java","-jar",MMT_JAR_LOCATION,"-w", "--file", MMT_MSL_LOCATION, "extension info.kwarc.mmt.python.Py4JGateway "+str(port)],preexec_fn=os.setsid,stdin=subprocess.PIPE)
+        time.sleep(8)
+        self.gateway = getJavaGateway(port)
+        controller = self.gateway.entry_point
+        setupJavaObject(self.gateway)
+
+        # connect to MMT via Py4JGateway and load the JupyterKernel extension
+        self.scala = controller.extman().addExtension("info.kwarc.mmt.python.JupyterKernel", toScalaList(self.gateway,[]))
+        self.scala.processRequest(self, self.sessionID,"start")
+        self.py4jConnectionFailed = False
+        # except Exception as e:
+        #     self.py4jConnectionFailed = True
+        #     self.msg = str(e)
 
   
     def start(self):
@@ -208,14 +225,19 @@ class JupyterKernel(Kernel):
 
     def do_execute(self, code, silent=False, store_history=True, user_expressions=None, allow_stdin=True):
         """Called when the user inputs code"""
-        if py4jConnectionFailed:
-            self.send_response(self.iopub_socket, 'display_data',to_display_data(py4jConnectionFailed.message))
+        if self.py4jConnectionFailed:
+            self.send_response(self.iopub_socket, 'display_data',to_display_data(self.msg))
         else:
-            response = scala.processRequest(self, self.sessionID,code)
+            message = ""
+            # TODO clean this up
+            response = self.scala.processRequest(self, self.sessionID,code)
             if "message" in response:
-                self.send_response(self.iopub_socket, 'display_data',to_display_data(response["message"]))
+                message = to_display_data(response["message"])
             if "element" in response:
-                self.send_response(self.iopub_socket, 'display_data',to_display_data(response["element"]))
+                message = to_display_data(response["element"])
+            if "omdoc" in response:
+                message = to_display_data(response["message"],response['omdoc'])
+            self.send_response(self.iopub_socket, 'display_data',message)
 
             
         return {'status': 'ok',
@@ -227,8 +249,12 @@ class JupyterKernel(Kernel):
   
     def do_shutdown(self,restart):
         """Called when the kernel is terminated"""
-        if not py4jConnectionFailed:
-            scala.processRequest(self, self.sessionID,"quit")
+        self.scala.processRequest(self, self.sessionID,"quit")
+        self.gateway.close(close_callback_server_connections=True)
+        self.mmt.stdin.write(b"exasdasda\n")
+        self.mmt.communicate()[0]
+        self.mmt.stdin.close()
+        os.killpg(os.getpgid(self.mmt.pid), signal.SIGTERM)
 
 
     def makeWidget(self, kind):
