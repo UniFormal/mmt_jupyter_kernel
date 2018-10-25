@@ -184,7 +184,7 @@ class JupyterKernel(Kernel):
         port = generatePort()
         # TODO update MMT path and .msl path
         self.mmt = subprocess.Popen(["java","-jar",MMT_JAR_LOCATION,"-w", "--file", MMT_MSL_LOCATION, "extension info.kwarc.mmt.python.Py4JGateway "+str(port)],preexec_fn=os.setsid,stdin=subprocess.PIPE)
-        time.sleep(8)
+        time.sleep(15)
         self.gateway = getJavaGateway(port)
         controller = self.gateway.entry_point
         setupJavaObject(self.gateway)
