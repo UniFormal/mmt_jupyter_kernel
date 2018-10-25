@@ -34,7 +34,9 @@ RUN git clone https://github.com/kwarc/jupyter-console-standalone /deps/jupyter-
     pip install /deps/jupyter-console-standalone && jupyter serverextension enable --sys-prefix --py jcs && \
     rm -rf /deps/jupyter-console-standalone
 
+
 # Install jupyter upload handler
+ENV UPLOAD_REDIRECT_PREFIX="/user-redirect"
 RUN git clone https://github.com/KWARC/jupyter-upload-handler /deps/jupyter-upload-handler && \
     pip install /deps/jupyter-upload-handler && jupyter serverextension enable --sys-prefix --py juh  && \
     rm -rf /deps/jupyter-upload-handler
