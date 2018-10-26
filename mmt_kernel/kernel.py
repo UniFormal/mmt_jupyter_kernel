@@ -14,8 +14,10 @@ from pexpect import replwrap
 
 from jupyter_client import KernelClient
 
+# TODO clean this up
 from .mmt import *
 from .utils import to_display_data
+from .utils import charMap
 
 try:
     from urllib.parse import quote
@@ -53,8 +55,6 @@ class Widget:
         """Sets key to value. Returns this widget to allow chaining."""
         self.keys[key] = value
         setattr(self.jupwid,key,value)
-        # self.jupwid.keys.append(key) this doesn't work to register new traitlets/keys for the widget to listen to
-        # TODO: maybe look into how we could register new traitlets, altough a custom widget is probably more fitting here
         return self
     
 
@@ -182,8 +182,8 @@ class JupyterKernel(Kernel):
 
         #try:
         port = generatePort()
-        # TODO update MMT path and .msl path
         self.mmt = subprocess.Popen(["java","-jar",MMT_JAR_LOCATION,"-w", "--file", MMT_MSL_LOCATION, "extension info.kwarc.mmt.python.Py4JGateway "+str(port)],preexec_fn=os.setsid,stdin=subprocess.PIPE)
+        # TODO ping the port until MMT has started up instead of waiting
         time.sleep(15)
         self.gateway = getJavaGateway(port)
         controller = self.gateway.entry_point
@@ -222,6 +222,28 @@ class JupyterKernel(Kernel):
         })
         return md
 
+    
+    def do_complete(self,code,cursorPos):
+        """Autocompletion when the user presses tab"""
+        # TODO load the shortcuts from the file instead of utils.charMap
+        # shortcuts = {}
+        # with open("mmt_kernel/unicode-latex-map", 'r', encoding='utf-8') as charMap:
+        #     for line in charMap:
+        #         line = line.replace('j','\\',1)
+        #         line = line.replace('\n','',1)
+        #         st, repl = line.split("|", 1)
+        #         shortcuts[st] = repl
+
+        for k,v in charMap.items():
+            if code[cursorPos-len(k)-1:cursorPos] == "\\"+k:
+                return  {
+                    'matches' : [v],
+                    'cursor_end' : cursorPos,
+                    'cursor_start' : cursorPos-len(k)-1,
+                    'metadata' : {},
+                    'status' : 'ok'
+                }
+
 
     def do_execute(self, code, silent=False, store_history=True, user_expressions=None, allow_stdin=True):
         """Called when the user inputs code"""
@@ -251,7 +273,7 @@ class JupyterKernel(Kernel):
         """Called when the kernel is terminated"""
         self.scala.processRequest(self, self.sessionID,"quit")
         self.gateway.close(close_callback_server_connections=True)
-        self.mmt.stdin.write(b"exasdasda\n")
+        self.mmt.stdin.write(b"exit\n")
         self.mmt.communicate()[0]
         self.mmt.stdin.close()
         os.killpg(os.getpgid(self.mmt.pid), signal.SIGTERM)

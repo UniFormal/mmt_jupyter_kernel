@@ -121,12 +121,19 @@ define([
                 CodeMirror.defineMIME("text/mmt", "mmt");
                 console.info('MMT mode loaded');      
                 
-                var link = document.createElement("link");
-                link.type = "text/css";
-                link.rel = "stylesheet";
-                link.href = require.toUrl("./mmt.css");
-                link.id = "mmt-css";
-                document.getElementsByTagName("head")[0].appendChild(link);   
+                var mmtStlye = document.createElement("link");
+                mmtStlye.type = "text/css";
+                mmtStlye.rel = "stylesheet";
+                mmtStlye.href = require.toUrl("./mmt.css");
+                mmtStlye.id = "mmt-css";
+                document.getElementsByTagName("head")[0].appendChild(mmtStlye);
+
+                codecell.CodeCell.options_default.cm_config.theme = "mmt";
+                var cells = Jupyter.notebook.get_cells().forEach(function (cell) {
+                        if (cell instanceof codecell.CodeCell) {
+                            cell.code_mirror.setOption("theme", "mmt");
+                        }
+                });
         }}
     
 

@@ -1,6 +1,11 @@
 /**
     Name: MMT theme
  */
+.keyword { color: rgb(223, 0, 0); margin-right: 5pt; }
+.uri { color: rgb(4, 99, 1); }
+.name { color: rgb(0, 0, 0); }
+.operator { color: rgb(88, 94, 100); margin-left: 5pt; margin-right: 5pt; }
+
 
  .cm-s-mmt span.cm-meta { color: #BBB529; }
  .cm-s-mmt span.cm-number { color: rgb(59, 190, 26); }
