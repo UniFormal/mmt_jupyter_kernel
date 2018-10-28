@@ -4,5 +4,5 @@ mathpath archive /content/
 
 extension info.kwarc.mmt.api.web.REPLServer
 extension info.kwarc.mmt.interviews.InterviewServer
-extension info.kwarc.mmt.api.ontology.RelationalReader
+// extension info.kwarc.mmt.api.ontology.RelationalReader
 extension info.kwarc.mmt.odk.Plugin
