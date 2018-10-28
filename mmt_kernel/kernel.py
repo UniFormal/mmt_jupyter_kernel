@@ -182,7 +182,15 @@ class JupyterKernel(Kernel):
 
         #try:
         port = generatePort()
-        self.mmt = subprocess.Popen(["java","-jar",MMT_JAR_LOCATION,"-w", "--file", MMT_MSL_LOCATION, "extension info.kwarc.mmt.python.Py4JGateway "+str(port)],preexec_fn=os.setsid,stdin=subprocess.PIPE)
+        
+        LOG_FILE_LOCATION = os.path.join(os.path.expanduser("~"), "logs", "mmt-%s.log" % (port))
+        MMT_ARGS = [
+            "java", "-jar", MMT_JAR_LOCATION, 
+            "-w", "--file", MMT_MSL_LOCATION,
+            "log file %s ; extension info.kwarc.mmt.python.Py4JGateway %s" % (LOG_FILE_LOCATION, port)
+        ]
+
+        self.mmt = subprocess.Popen(MMT_ARGS,preexec_fn=os.setsid,stdin=subprocess.PIPE)
         # TODO ping the port until MMT has started up instead of waiting
         time.sleep(15)
         self.gateway = getJavaGateway(port)
