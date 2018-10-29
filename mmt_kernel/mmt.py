@@ -21,10 +21,6 @@ def getAPI(mmt):
      # jvm yields access to Java namespace
     return mmt.api
 
-def generatePort():
-    from random import randint
-    return randint(20000,30000)
-
 def setupJavaObject(gateway):
     # everything below here are optional improvements to smoothen the Scala-Python integration
     # they also provide examples how to use the bridge

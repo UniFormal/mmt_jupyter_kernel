@@ -18,6 +18,7 @@ from jupyter_client import KernelClient
 from .mmt import *
 from .utils import to_display_data
 from .utils import charMap
+from .utils import check_port, generate_port
 
 try:
     from urllib.parse import quote
@@ -120,7 +121,7 @@ wcounter = 0
 
 class JupyterKernel(Kernel):
     implementation = 'MMT'
-    implementation_version = '1.2'
+    implementation_version = '1.3'
     language = 'mmt'
     language_version = '0.1'
     language_info = {
@@ -181,7 +182,7 @@ class JupyterKernel(Kernel):
         self.msg = "start"
 
         #try:
-        port = generatePort()
+        port = generate_port()
         
         LOG_FILE_LOCATION = os.path.join(os.path.expanduser("~"), "logs", "mmt-%s.log" % (port))
         MMT_ARGS = [
@@ -191,8 +192,12 @@ class JupyterKernel(Kernel):
         ]
 
         self.mmt = subprocess.Popen(MMT_ARGS,preexec_fn=os.setsid,stdin=subprocess.PIPE)
-        # TODO ping the port until MMT has started up instead of waiting
-        time.sleep(15)
+
+        # wait for the port to open
+        while not check_port("localhost", port):
+            print("Port not open")
+            time.sleep(1)
+        
         self.gateway = getJavaGateway(port)
         controller = self.gateway.entry_point
         setupJavaObject(self.gateway)
@@ -284,7 +289,7 @@ class JupyterKernel(Kernel):
         self.mmt.stdin.write(b"exit\n")
         self.mmt.communicate()[0]
         self.mmt.stdin.close()
-        os.killpg(os.getpgid(self.mmt.pid), signal.SIGTERM)
+        self.mmt.kill()
 
 
     def makeWidget(self, kind):
