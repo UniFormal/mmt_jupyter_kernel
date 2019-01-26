@@ -1,23 +1,14 @@
-import requests
-import getpass
 import sys
 import os
-import signal
-import json
 import ipywidgets
 import subprocess
 import time
 
-
-
-from pexpect import replwrap
-
+# TODO clean up imports
 from jupyter_client import KernelClient
 
-# TODO clean this up
 from .mmt import *
 from .utils import to_display_data
-from .utils import charMap
 from .utils import check_port, generate_port
 
 try:
@@ -26,20 +17,14 @@ except ImportError:
     from urllib import quote
 
 from IPython.display import display
-from IPython.core import release
-from IPython.utils.tokenutil import token_at_cursor, line_at_cursor
-
-from ipython_genutils.py3compat import builtin_mod, PY3, unicode_type, safe_unicode
 
 from traitlets import Instance, Type, Any, List, Bool
 from ipykernel.kernelbase import Kernel
 from ipykernel.comm import CommManager
 from ipykernel.zmqshell import ZMQInteractiveShell
 
-MMT_JAR_LOCATION = os.getenv('MMT_JAR_LOCATION',os.path.expanduser("~")+"/MMT/deploy/mmt.jar")
-MMT_MSL_LOCATION = os.getenv('MMT_MSL_LOCATION',os.path.expanduser("~")+"/MMT/deploy/s2.msl")
-
-
+MMT_JAR_LOCATION = os.getenv('MMT_JAR_LOCATION', os.path.expanduser("~")+"/MMT/deploy/mmt.jar")
+MMT_MSL_LOCATION = os.getenv('MMT_MSL_LOCATION', os.path.expanduser("~")+"/MMT/deploy/startup.msl")
 
 # ----------------------------------  WIDGET  ----------------------------------
 class Widget:
@@ -105,15 +90,6 @@ class Widget:
     class Java:
         implements = ["info.kwarc.mmt.python.WidgetPython"]
 
-# this is just for testing
-class Text(Widget):
-    def __init__(self, widget, kernel, ID):
-        super(Text, self).__init__(widget, kernel, ID)
-        self.value = self.jupwid.value
-    class Java:
-        implements = ["info.kwarc.mmt.python.Text"]
- 
-
 
 # ----------------------------------  KERNEL  ----------------------------------
 widgets = {}
@@ -157,6 +133,7 @@ class JupyterKernel(Kernel):
 
     def __init__(self, **kwargs):
         super(JupyterKernel, self).__init__(**kwargs)
+        # set up the shell
         self.shell = self.shell_class.instance(parent=self,
                                                profile_dir=self.profile_dir,
                                                user_module=self.user_module,
@@ -169,8 +146,8 @@ class JupyterKernel(Kernel):
         self.shell.display_pub.session = self.session
         self.shell.display_pub.pub_socket = self.iopub_socket
 
+        # set up and attach comm_manager to the shell
         self.comm_manager = CommManager(parent=self, kernel=self)
-
         self.shell.configurables.append(self.comm_manager)
         comm_msg_types = ['comm_open', 'comm_msg', 'comm_close']
         for msg_type in comm_msg_types:
@@ -181,21 +158,30 @@ class JupyterKernel(Kernel):
         self.sessionID = str(self.session.session)
         self.msg = "start"
 
-        #try:
+        # generate a port on which to run MMT
         port = generate_port()
         
         LOG_FILE_LOCATION = os.path.join(os.path.expanduser("~"), "logs", "mmt-%s.log" % (port))
-        MMT_ARGS = [
-            "java", "-jar", MMT_JAR_LOCATION, 
-            "-w", "--file", MMT_MSL_LOCATION,
-            "log file %s ; extension info.kwarc.mmt.python.Py4JGateway %s" % (LOG_FILE_LOCATION, port)
-        ]
-
+        if MMT_MSL_LOCATION:
+            # start MMT with explicit MSL file
+            MMT_ARGS = [
+                "java", "-jar", MMT_JAR_LOCATION, 
+                "--file", MMT_MSL_LOCATION,
+                "-w", "log file %s ; extension info.kwarc.mmt.python.Py4JGateway %s" % (LOG_FILE_LOCATION, port)
+            ]
+        else:
+            # start MMT without or with implicit MSL file which is located in the same folder as the mmt.jar
+            MMT_ARGS = [
+                "java", "-jar", MMT_JAR_LOCATION,
+                "-w", "log file %s ; extension info.kwarc.mmt.python.Py4JGateway %s" % (LOG_FILE_LOCATION, port)
+            ]
+        # start MMT
         self.mmt = subprocess.Popen(MMT_ARGS,preexec_fn=os.setsid,stdin=subprocess.PIPE)
 
         # wait for the port to open
         while not check_port("localhost", port):
             print("Port not open")
+            sys.stdout.flush()
             time.sleep(1)
         
         self.gateway = getJavaGateway(port)
@@ -206,9 +192,6 @@ class JupyterKernel(Kernel):
         self.scala = controller.extman().addExtension("info.kwarc.mmt.python.JupyterKernel", toScalaList(self.gateway,[]))
         self.scala.processRequest(self, self.sessionID,"start")
         self.py4jConnectionFailed = False
-        # except Exception as e:
-        #     self.py4jConnectionFailed = True
-        #     self.msg = str(e)
 
   
     def start(self):
@@ -238,16 +221,18 @@ class JupyterKernel(Kernel):
     
     def do_complete(self,code,cursorPos):
         """Autocompletion when the user presses tab"""
-        # TODO load the shortcuts from the file instead of utils.charMap
-        # shortcuts = {}
-        # with open("mmt_kernel/unicode-latex-map", 'r', encoding='utf-8') as charMap:
-        #     for line in charMap:
-        #         line = line.replace('j','\\',1)
-        #         line = line.replace('\n','',1)
-        #         st, repl = line.split("|", 1)
-        #         shortcuts[st] = repl
+        # load the shortcuts from the unicode-latex-map
+        charMapPath = os.path.dirname(os.path.realpath(__file__))
+        shortcuts = {}
+        with open(os.path.join(charMapPath,'unicode-latex-map'), 'r', encoding='utf-8') as charMap:
+            for line in charMap:
+                line = line.replace('j','',1)
+                line = line.replace('\n','',1)
+                st, repl = line.split("|", 1)
+                shortcuts[st] = repl
 
-        for k,v in charMap.items():
+        # use them for tab-completion
+        for k,v in shortcuts.items():
             if code[cursorPos-len(k)-1:cursorPos] == "\\"+k:
                 return  {
                     'matches' : [v],
@@ -264,7 +249,6 @@ class JupyterKernel(Kernel):
             self.send_response(self.iopub_socket, 'display_data',to_display_data(self.msg))
         else:
             message = ""
-            # TODO clean this up
             response = self.scala.processRequest(self, self.sessionID,code)
             if "message" in response:
                 message = to_display_data(response["message"])
@@ -313,24 +297,18 @@ class JupyterKernel(Kernel):
         wcounter = wcounter +1
         widgets.update({ID : w})
         return Widget(w, self, ID)
-    
-    def Text(self,PythonParamDict):
-        args = self.toPythonDict(PythonParamDict)
-        w = ipywidgets.Text(**args)
-        global wcounter
-        ID = str(wcounter)
-        wcounter = wcounter +1
-        widgets.update({ID : w})
-        return Text(w, self, ID)
 
     def display(self,wids):
+        """Displays a single, or a list of widgets"""
         if isinstance(wids, py4j.java_collections.JavaList):
             for wid in wids:
                 wid.display()
         else:
             display(wids)  
     
+    # TODO maybe move this somewhere else
     def toPythonDict(self,PythonParamDict):
+        """Translates the Scala datastructure PythonParamDict to a python dict"""
         pythonDict = {}
         for key in PythonParamDict:
             value = PythonParamDict[key]
@@ -351,9 +329,9 @@ class JupyterKernel(Kernel):
         return pythonDict
    
 
+    # annotation for Py4J
     class Java:
         implements = ["info.kwarc.mmt.python.JupyterKernelPython"]
-
 
 
 if __name__ == '__main__':

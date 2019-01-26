@@ -15,8 +15,6 @@ kernel_json = {
 
 
 def install_my_kernel_spec(user=True, prefix=None):
-    
-
     with TemporaryDirectory() as td:
         os.chmod(td, 0o755) # Starts off as 700, not user readable
         with open(os.path.join(td, 'kernel.json'), 'w') as f:
@@ -33,13 +31,15 @@ def install_my_kernel_spec(user=True, prefix=None):
         shutil.copy2(css, td)
 
         print('Installing Jupyter kernel spec mmt')
-        KernelSpecManager().install_kernel_spec(td, 'mmt', user=user, replace=True, prefix=prefix)
+        KernelSpecManager().install_kernel_spec(td, 'mmt', user=user, prefix=prefix)
+
 
 def _is_root():
     try:
         return os.geteuid() == 0
     except AttributeError:
         return False # assume not an admin on non-Unix platforms
+
 
 def main(argv=None):
     ap = argparse.ArgumentParser()

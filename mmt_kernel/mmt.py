@@ -18,7 +18,7 @@ def getMMT(gateway):
     return gateway.jvm.info.kwarc.mmt
 
 def getAPI(mmt):
-     # jvm yields access to Java namespace
+    # jvm yields access to Java namespace
     return mmt.api
 
 def setupJavaObject(gateway):

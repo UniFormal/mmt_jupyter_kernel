@@ -1,0 +1,72 @@
+#!/bin/bash
+
+function read_mmt_jar_location() {
+    cat << EOF
+The kernel using is using MMT as a subprocess and thus needs access to the mmt.jar. 
+Please enter the location where your mmt.jar is located, or leave it blank to use 
+"$HOME/MMT/deploy/mmt.jar", which is the standard installation location for MMT.
+EOF
+
+    printf "MMT_JAR_LOCATION="
+    read MMT_JAR_LOCATION
+    if [ -z "$MMT_JAR_LOCATION" ]
+    then
+        MMT_JAR_LOCATION="$HOME/MMT/deploy/mmt.jar"
+    fi;
+
+    echo "export MMT_JAR_LOCATION=$MMT_JAR_LOCATION"
+}
+
+function read_msl_location() {
+    cat << EOF
+The startup.msl file is a file that lets you specify which commands MMT should
+execute upon startup. If you already have a startup.msl file please state the
+location of it here. You can leave it blank if it is located in the same folder
+as the mmt.jar as the jar will automatically use it upon starting. Please note 
+that, if you have a startup file in the same folder as the jar and state an 
+additional one here, MMT will use both.
+EOF
+
+    printf "MMT_MSL_LOCATION="
+    read MMT_MSL_LOCATION
+
+    echo "export MMT_MSL_LOCATION=$MMT_MSL_LOCATION"
+}
+
+function add_jar_location_to_profile() {
+    echo "export MMT_JAR_LOCATION=$MMT_JAR_LOCATION" >> $HOME/.profile
+    echo "Added jar location to $HOME/.profile"
+}
+
+function add_msl_location_to_profile() {
+    echo "export MMT_MSL_LOCATION=$MMT_MSL_LOCATION" >> $HOME/.profile
+    echo "Added msl location to $HOME/.profile"
+}
+
+
+
+function main() {
+    echo "MMT Kernel configuration"
+
+    echo ""
+    read_mmt_jar_location
+
+    echo ""
+    read_msl_location
+
+    echo ""
+    echo "Writing confiuration"
+    add_jar_location_to_profile
+    if [ ! -z "$MMT_MSL_LOCATION" ]
+    then
+        add_msl_location_to_profile
+    fi;
+    cat << EOF
+The configuration will be written into $HOME/.profile for the changes to take effect please reboot
+your PC or log out of your current user account. If you want to change the configuration please do so in $HOME/.profile.
+EOF
+
+    echo "Done. "
+}
+
+main
