@@ -248,7 +248,7 @@ class JupyterKernel(Kernel):
         if self.py4jConnectionFailed:
             self.send_response(self.iopub_socket, 'display_data',to_display_data(self.msg))
         else:
-            message = ""
+            message = None
             response = self.scala.processRequest(self, self.sessionID,code)
             if "message" in response:
                 message = to_display_data(response["message"])
@@ -256,7 +256,8 @@ class JupyterKernel(Kernel):
                 message = to_display_data(response["element"])
             if "omdoc" in response:
                 message = to_display_data(response["message"],response['omdoc'])
-            self.send_response(self.iopub_socket, 'display_data',message)
+            if message:
+                self.send_response(self.iopub_socket, 'display_data',message)
 
             
         return {'status': 'ok',
