@@ -42,7 +42,6 @@ class Widget:
         self.keys[key] = value
         setattr(self.jupwid,key,value)
         return self
-    
 
     def get(self, key):
         """Returns the value to given key"""
@@ -54,6 +53,10 @@ class Widget:
     
     def getAsBool(self,key):
         """Necessary for the right datatype in Scala""" 
+        return self.get(key)
+    
+    def getAsString(self,key):
+        """Neccessary for the right datatype in Scala"""
         return self.get(key)
     
     def getID(self):
