@@ -4,9 +4,9 @@
 from py4j.java_gateway import JavaGateway, JavaObject, GatewayParameters, CallbackServerParameters
 import py4j
 
-def getJavaGateway(port):
+def getJavaGateway(address, port):
     # create the gateway that communicates with the JVM
-    gwp = GatewayParameters(auto_field=True,auto_convert=True,port=port)
+    gwp = GatewayParameters(auto_field=True,auto_convert=True,port=port,address=address)
     cbp = CallbackServerParameters(port=port+1)
     return JavaGateway(gateway_parameters=gwp,callback_server_parameters=cbp,python_proxy_port=port+1)
 

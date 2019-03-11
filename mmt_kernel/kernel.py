@@ -23,8 +23,10 @@ from ipykernel.kernelbase import Kernel
 from ipykernel.comm import CommManager
 from ipykernel.zmqshell import ZMQInteractiveShell
 
-MMT_JAR_LOCATION = os.getenv('MMT_JAR_LOCATION', os.path.expanduser("~")+"/MMT/deploy/mmt.jar")
-MMT_MSL_LOCATION = os.getenv('MMT_MSL_LOCATION', os.path.expanduser("~")+"/MMT/deploy/startup.msl")
+MMT_JAR_LOCATION = os.getenv('MMT_JAR_LOCATION', os.path.expanduser("~/MMT/deploy/mmt.jar"))
+MMT_MSL_LOCATION = os.getenv('MMT_MSL_LOCATION', os.path.expanduser("~/MMT/deploy/startup.msl"))
+MMT_PY4J_HOST = os.getenv('MMT_PY4J_HOST', '127.0.0.1')
+MMT_PY4J_PORT = os.getenv('MMT_PY4J_PORT', None)
 
 # ----------------------------------  WIDGET  ----------------------------------
 class Widget:
@@ -161,6 +163,39 @@ class JupyterKernel(Kernel):
         self.sessionID = str(self.session.session)
         self.msg = "start"
 
+        port = self._spawn_or_connect()
+
+        # wait for the port to open
+        while not check_port(MMT_PY4J_HOST, port):
+            print("Port not open")
+            sys.stdout.flush()
+            time.sleep(1)
+        
+        self.gateway = getJavaGateway(MMT_PY4J_HOST, port)
+        controller = self.gateway.entry_point
+        setupJavaObject(self.gateway)
+
+        # connect to MMT via Py4JGateway and load the JupyterKernel extension
+        self.scala = controller.extman().addExtension("info.kwarc.mmt.python.JupyterKernel", toScalaList(self.gateway,[]))
+        self.scala.processRequest(self, self.sessionID,"start")
+        self.py4jConnectionFailed = False
+    
+    def _spawn_or_connect(self):
+        """ Spawns a new MMT instance or connects to it """
+
+        # if the user provided a port via the environment variables
+        # just return it
+        if MMT_PY4J_PORT is not None:
+            return int(MMT_PY4J_PORT)
+        
+        # if not spawn mmt on a new port
+        else:
+            return self._spawn_mmt()
+
+    
+    def _spawn_mmt(self):
+        """ Spawns a new MMT instance """
+        
         # generate a port on which to run MMT
         port = generate_port()
         
@@ -181,20 +216,9 @@ class JupyterKernel(Kernel):
         # start MMT
         self.mmt = subprocess.Popen(MMT_ARGS,preexec_fn=os.setsid,stdin=subprocess.PIPE)
 
-        # wait for the port to open
-        while not check_port("localhost", port):
-            print("Port not open")
-            sys.stdout.flush()
-            time.sleep(1)
-        
-        self.gateway = getJavaGateway(port)
-        controller = self.gateway.entry_point
-        setupJavaObject(self.gateway)
+        # and return the port
+        return port
 
-        # connect to MMT via Py4JGateway and load the JupyterKernel extension
-        self.scala = controller.extman().addExtension("info.kwarc.mmt.python.JupyterKernel", toScalaList(self.gateway,[]))
-        self.scala.processRequest(self, self.sessionID,"start")
-        self.py4jConnectionFailed = False
 
   
     def start(self):
@@ -274,10 +298,14 @@ class JupyterKernel(Kernel):
         """Called when the kernel is terminated"""
         self.scala.processRequest(self, self.sessionID,"quit")
         self.gateway.close(close_callback_server_connections=True)
-        self.mmt.stdin.write(b"exit\n")
-        self.mmt.communicate()[0]
-        self.mmt.stdin.close()
-        self.mmt.kill()
+
+        # close mmt if it was a process to begin
+        if self.mmt is not None:
+            self.mmt.stdin.write(b"exit\n")
+            self.mmt.communicate()[0]
+            self.mmt.stdin.close()
+            self.mmt.kill()
+            self.mmt = None
 
 
     def makeWidget(self, kind):
@@ -331,7 +359,9 @@ class JupyterKernel(Kernel):
             else:
                 pythonDict.update({key : value})
         return pythonDict
-   
+    
+    def toString(self):
+        return str(self)
 
     # annotation for Py4J
     class Java:
